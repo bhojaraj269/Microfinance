@@ -2643,6 +2643,7 @@ function PaymentsPage({ goldRate }) {
   // Accordion States
   const [openUpcomingUser, setOpenUpcomingUser] = useState(null);
   const [openCashUser, setOpenCashUser] = useState(null);
+  const [openCashChit, setOpenCashChit] = useState(null);
   const [openHistUser, setOpenHistUser] = useState(null);
   const [openHistScheme, setOpenHistScheme] = useState({}); // { userId_schemeId: boolean }
 
@@ -2959,7 +2960,7 @@ function PaymentsPage({ goldRate }) {
       {/* Modern Tab Navigation */}
       <div style={{ display: "flex", gap: 12, background: "var(--bg-input)", padding: 8, borderRadius: 12, overflowX: "auto", border: "1px solid var(--border-alt)" }}>
         {[
-          { id: "payments", label: "Payments", icon: "💰" },
+          { id: "payments", label: "Upcoming Payments", icon: "💰" },
           { id: "history", label: "Payment History", icon: "🕒" },
           { id: "approvals", label: "Payment Approvals", icon: "📋" },
           { id: "cash", label: "Cash Payment", icon: "💵" },
@@ -3314,47 +3315,58 @@ function PaymentsPage({ goldRate }) {
 
                         {isOpen && (
                           <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
-                            {group.schemes.map(s => (
-                              <div key={s.info?._id || s.schemeId} style={{ background: "var(--bg-card)", borderRadius: 12, padding: 16, border: "1px solid var(--border-main)" }}>
-                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-                                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                    <span style={{ fontSize: 12, background: "var(--primary-bg)", color: "var(--primary)", padding: "4px 10px", borderRadius: 8, fontWeight: 800, letterSpacing: 0.5 }}>{s.info?.schemeId || "Scheme"}</span>
-                                    <span style={{ fontWeight: 700, color: "var(--text-main)", fontSize: 14 }}>₹{s.info?.monthlyAmount?.toLocaleString()}/mo</span>
-                                  </div>
-                                  <span style={{ fontSize: 12, color: "var(--text-light)", fontWeight: 600 }}>Started: {new Date(s.info?.startDate).toLocaleDateString()}</span>
-                                </div>
-
-                                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                                  {s.payments.sort((a, b) => a.monthNumber - b.monthNumber).map(p => (
-                                    <div key={p._id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", background: "var(--bg-input)", borderRadius: 10, border: "1px solid var(--border-alt)" }}>
-                                      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                                        <div style={{ width: 32, height: 32, borderRadius: "50%", background: p.status === "overdue" ? "var(--danger-bg)" : "var(--primary-bg)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 800, color: p.status === "overdue" ? "var(--danger)" : "var(--primary)" }}>{p.monthNumber}</div>
-                                        <div>
-                                          <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text-main)" }}>Month {p.monthNumber}</div>
-                                          <div style={{ fontSize: 11, color: p.status === "overdue" ? "var(--danger)" : "var(--text-sub)", fontWeight: 600 }}>
-                                            {p.status === "overdue" ? "⚠ OVERDUE" : `Due: ${new Date(p.dueDate).toLocaleDateString()}`}
-                                          </div>
-                                        </div>
-                                      </div>
-                                      <button
-                                        onClick={() => setCashUpdate({
-                                          paymentId: p._id,
-                                          amount: p.amount,
-                                          monthNumber: p.monthNumber,
-                                          userName: group.user?.name,
-                                          schemeName: s.info?.schemeId,
-                                          date: new Date().toISOString().split('T')[0],
-                                          mode: "Cash"
-                                        })}
-                                        style={{ padding: "8px 16px", background: "var(--primary)", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700, boxShadow: "0 2px 6px rgba(26,127,212,0.2)" }}
-                                      >
-                                        Update Payment
-                                      </button>
+                            {group.schemes.map(s => {
+                              const schemeKey = `${group.user?._id}_${s.info?._id || s.schemeId || s.info?.schemeId}`;
+                              const schemeOpen = openCashChit === schemeKey;
+                              return (
+                                <div key={schemeKey} style={{ background: "var(--bg-card)", borderRadius: 12, border: "1px solid var(--border-main)", overflow: "hidden" }}>
+                                  <div
+                                    onClick={() => setOpenCashChit(schemeOpen ? null : schemeKey)}
+                                    style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px", cursor: "pointer", background: "rgba(255,255,255,0.04)", borderBottom: schemeOpen ? "1px solid var(--border-alt)" : "none" }}
+                                  >
+                                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                      <span style={{ fontSize: 12, background: "var(--primary-bg)", color: "var(--primary)", padding: "4px 10px", borderRadius: 8, fontWeight: 800, letterSpacing: 0.5 }}>{s.info?.schemeId || "Scheme"}</span>
+                                      <span style={{ fontWeight: 700, color: "var(--text-main)", fontSize: 14 }}>₹{s.info?.monthlyAmount?.toLocaleString()}/mo</span>
                                     </div>
-                                  ))}
+                                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                                      <span style={{ fontSize: 12, color: "var(--text-light)", fontWeight: 600 }}>Started: {new Date(s.info?.startDate).toLocaleDateString()}</span>
+                                      <span style={{ fontSize: 24, transform: schemeOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }}>▾</span>
+                                    </div>
+                                  </div>
+                                  {schemeOpen && (
+                                    <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 8 }}>
+                                      {s.payments.sort((a, b) => a.monthNumber - b.monthNumber).map(p => (
+                                        <div key={p._id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", background: "var(--bg-input)", borderRadius: 10, border: "1px solid var(--border-alt)" }}>
+                                          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                                            <div style={{ width: 32, height: 32, borderRadius: "50%", background: p.status === "overdue" ? "var(--danger-bg)" : "var(--primary-bg)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 800, color: p.status === "overdue" ? "var(--danger)" : "var(--primary)" }}>{p.monthNumber}</div>
+                                            <div>
+                                              <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text-main)" }}>Month {p.monthNumber}</div>
+                                              <div style={{ fontSize: 11, color: p.status === "overdue" ? "var(--danger)" : "var(--text-sub)", fontWeight: 600 }}>
+                                                {p.status === "overdue" ? "⚠ OVERDUE" : `Due: ${new Date(p.dueDate).toLocaleDateString()}`}
+                                              </div>
+                                            </div>
+                                          </div>
+                                          <button
+                                            onClick={() => setCashUpdate({
+                                              paymentId: p._id,
+                                              amount: p.amount,
+                                              monthNumber: p.monthNumber,
+                                              userName: group.user?.name,
+                                              schemeName: s.info?.schemeId,
+                                              date: new Date().toISOString().split('T')[0],
+                                              mode: "Cash"
+                                            })}
+                                            style={{ padding: "8px 16px", background: "var(--primary)", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700, boxShadow: "0 2px 6px rgba(26,127,212,0.2)" }}
+                                          >
+                                            Update Payment
+                                          </button>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
                                 </div>
-                              </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         )}
                       </div>
@@ -4308,10 +4320,10 @@ function ReportsPage() {
               <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
                 <input
                   type="text"
-                  placeholder="Search by phone..."
+                  placeholder="Search by phone number"
                   value={searchPhone}
                   onChange={e => setSearchPhone(e.target.value)}
-                  style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid #E2E8F0", fontSize: 13, outline: "none", width: 200 }}
+                  style={{ padding: "10px 14px", borderRadius: 12, border: "1px solid #CBD5E1", fontSize: 14, outline: "none", width: 240, background: "#F8FAFC", color: "#0F172A" }}
                 />
                 <Btn color="#059669" onClick={() => handleExportCSV(filteredPayments, selectedMonth.month)} style={{ padding: "8px 16px", fontSize: 13 }}>⬇ Export CSV</Btn>
                 <button onClick={() => { setSelectedMonth(null); setSearchPhone(""); }} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: "#64748B" }}>✕</button>
@@ -4967,22 +4979,62 @@ function ProfileAdminPage() {
     phone: adminInfo.phone || "",
     shopName: adminInfo.shopName || "",
   });
+  const [verifyingProfile, setVerifyingProfile] = useState(false);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [profileMessage, setProfileMessage] = useState({ type: "", text: "" });
 
-  const handleRequestUpdate = () => {
-    const subject = encodeURIComponent(`Profile Update Request for Shop ${adminInfo.shopCode || ""}`);
-    const body = encodeURIComponent(
-      `Hello SkyUp Team,\n\nI would like to request an update to my shop's profile details.\n\n` +
-      `Shop Code: ${adminInfo.shopCode || ""}\n` +
-      `Current Shop Name: ${adminInfo.shopName || ""}\n\n` +
-      `Requested Changes:\n` +
-      `- New Owner Name: ${form.name !== adminInfo.name ? form.name : ""}\n` +
-      `- New Email: ${form.email !== adminInfo.email ? form.email : ""}\n` +
-      `- New Shop Phone: ${form.phone !== adminInfo.phone ? form.phone : ""}\n` +
-      `- New Shop Name: ${form.shopName !== adminInfo.shopName ? form.shopName : ""}\n` +
-      `- Attached Profile Picture: (Please attach if any)\n\n` +
-      `Thank you.`
-    );
-    window.location.href = `mailto:support@skyupdigital.com?subject=${subject}&body=${body}`;
+  const saveProfile = () => {
+    setProfileMessage({ type: "", text: "" });
+    setVerifyingProfile(true);
+  };
+
+  const handleProfileVerified = async (verificationToken) => {
+    setVerifyingProfile(false);
+    setSavingProfile(true);
+    setProfileMessage({ type: "", text: "" });
+
+    try {
+      const res = await fetch(`${ADMIN_API}/api/auth/admin/shop-settings`, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${sessionStorage.getItem("adminToken")}`,
+          "Content-Type": "application/json",
+          "x-verification-token": verificationToken,
+        },
+        body: JSON.stringify({
+          name: form.name,
+          email: form.email,
+          phone: form.phone,
+          shopName: form.shopName,
+        }),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        const updatedAdminInfo = {
+          ...adminInfo,
+          name: data.data.ownerName || form.name,
+          email: data.data.email || form.email,
+          phone: data.data.phone || form.phone,
+          shopName: data.data.shopName || form.shopName,
+        };
+        sessionStorage.setItem("adminInfo", JSON.stringify(updatedAdminInfo));
+        setForm(prev => ({
+          ...prev,
+          name: updatedAdminInfo.name,
+          email: updatedAdminInfo.email,
+          phone: updatedAdminInfo.phone,
+          shopName: updatedAdminInfo.shopName,
+        }));
+        setProfileMessage({ type: "success", text: "Profile updated successfully." });
+      } else {
+        setProfileMessage({ type: "error", text: data.message || "Unable to update profile." });
+      }
+    } catch (err) {
+      setProfileMessage({ type: "error", text: "Network error while saving profile." });
+    } finally {
+      setSavingProfile(false);
+    }
   };
 
   return (
@@ -5014,27 +5066,45 @@ function ProfileAdminPage() {
           </div>
 
           <div style={{
-            marginTop: 32, background: "rgba(26,127,212,0.05)",
-            border: "1px solid rgba(26,127,212,0.2)", borderRadius: 12, padding: 20
+            marginTop: 32, display: "flex", alignItems: "center",
+            justifyContent: "space-between", flexWrap: "wrap", gap: 16
           }}>
-            <h4 style={{ margin: "0 0 8px 0", color: "var(--text-main)", fontSize: 15 }}>Request Profile Update</h4>
-            <p style={{ margin: "0 0 16px 0", color: "var(--text-sub)", fontSize: 13, lineHeight: 1.5 }}>
-              For security and verification purposes, changes to the shop owner's name, email address, and profile picture must be processed directly by the SkyUp administration team.
-            </p>
+            <div style={{ color: "var(--text-sub)", fontSize: 13, lineHeight: 1.6, maxWidth: 520 }}>
+              Shop code is permanent and cannot be changed. Update the owner name, email, phone, and shop name directly.
+            </div>
             <button
-              onClick={handleRequestUpdate}
+              onClick={saveProfile}
+              disabled={savingProfile}
               style={{
                 padding: "12px 24px", background: "var(--primary)", color: "#fff",
-                border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 700,
-                fontSize: 13, boxShadow: "0 4px 12px rgba(26,127,212,0.3)",
-                display: "inline-flex", alignItems: "center", gap: 8
+                border: "none", borderRadius: 8, cursor: savingProfile ? "default" : "pointer", fontWeight: 700,
+                fontSize: 13, boxShadow: "0 4px 12px rgba(26,127,212,0.3)"
               }}
             >
-              ✉️ Request Update via Email
+              {savingProfile ? "Saving..." : "Save Profile"}
             </button>
           </div>
+          {profileMessage.text && (
+            <div style={{
+              marginTop: 16,
+              padding: "14px 16px",
+              borderRadius: 12,
+              background: profileMessage.type === "success" ? "rgba(22,163,74,0.12)" : "rgba(254,226,226,0.9)",
+              color: profileMessage.type === "success" ? "#166534" : "#991B1B",
+              border: profileMessage.type === "success" ? "1px solid rgba(22,163,74,0.2)" : "1px solid rgba(248,113,113,0.25)"
+            }}>
+              {profileMessage.text}
+            </div>
+          )}
         </div>
       </Card>
+      {verifyingProfile && (
+        <SecurityVerificationModal
+          actionName="Profile Details"
+          onClose={() => setVerifyingProfile(false)}
+          onVerified={handleProfileVerified}
+        />
+      )}
     </div>
   );
 }

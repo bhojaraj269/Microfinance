@@ -362,7 +362,7 @@ const getShopSettings = async (req, res) => {
     if (!req.admin) return res.status(401).json({ success: false, message: "Not authorized" });
 
     const admin = await Admin.findById(req.admin._id)
-      .select("name phone shopName shopCode upiId qrCodeUrl upiPayeeName bankName");
+      .select("name email phone shopName shopCode upiId qrCodeUrl upiPayeeName bankName");
 
     if (!admin)
       return res.status(404).json({ success: false, message: "Admin not found" });
@@ -373,6 +373,7 @@ const getShopSettings = async (req, res) => {
         shopName: admin.shopName,
         shopCode: admin.shopCode,
         ownerName: admin.name,
+        email: admin.email,
         phone: admin.phone,
         upiId: admin.upiId || "",
         upiPayeeName: admin.upiPayeeName || "",
@@ -497,7 +498,7 @@ const updateShopSettings = async (req, res) => {
     if (!admin)
       return res.status(404).json({ success: false, message: "Admin not found" });
 
-    const { name, ownerName, phone, shopName, upiId, upiPayeeName, bankName, qrCodeUrl } = req.body;
+    const { name, ownerName, email, phone, shopName, upiId, upiPayeeName, bankName, qrCodeUrl } = req.body;
 
     const isVal = (v) => v !== undefined && v !== null && v !== "" && v !== "undefined" && v !== "null";
 
@@ -505,8 +506,20 @@ const updateShopSettings = async (req, res) => {
     const finalName = name || ownerName;
 
     if (isVal(finalName)) admin.name = finalName.trim();
-    if (isVal(phone))     admin.phone = phone.trim();
-    if (isVal(shopName))  admin.shopName = shopName.trim();
+
+    if (isVal(email)) {
+      const existingEmail = await Admin.findOne({ email: email.toLowerCase(), _id: { $ne: admin._id } });
+      if (existingEmail) return res.status(409).json({ success: false, message: "This email is already in use by another account." });
+      admin.email = email.trim().toLowerCase();
+    }
+
+    if (isVal(phone)) {
+      const existingPhone = await Admin.findOne({ phone: phone.trim(), _id: { $ne: admin._id } });
+      if (existingPhone) return res.status(409).json({ success: false, message: "This phone number is already in use by another account." });
+      admin.phone = phone.trim();
+    }
+
+    if (isVal(shopName)) admin.shopName = shopName.trim();
     if (isVal(upiId))     admin.upiId = upiId.trim();
     if (isVal(upiPayeeName)) admin.upiPayeeName = upiPayeeName.trim();
     if (isVal(bankName))  admin.bankName = bankName.trim();
@@ -535,6 +548,7 @@ const updateShopSettings = async (req, res) => {
         shopName: admin.shopName,
         shopCode: admin.shopCode,
         ownerName: admin.name,
+        email: admin.email,
         phone: admin.phone,
         upiId: admin.upiId,
         upiPayeeName: admin.upiPayeeName,
