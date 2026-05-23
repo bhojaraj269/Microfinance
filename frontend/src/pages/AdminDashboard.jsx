@@ -2623,6 +2623,7 @@ function PaymentsPage({ goldRate }) {
 
   // Data States
   const [groupedUpcoming, setGroupedUpcoming] = useState([]);
+  const [flatUpcomingPayments, setFlatUpcomingPayments] = useState([]);
   const [groupedHistory, setGroupedHistory] = useState([]);
   const [expandedDates, setExpandedDates] = useState({});
   const [historySearchQuery, setHistorySearchQuery] = useState("");
@@ -2641,6 +2642,7 @@ function PaymentsPage({ goldRate }) {
 
   // Accordion States
   const [openUpcomingUser, setOpenUpcomingUser] = useState(null);
+  const [openCashUser, setOpenCashUser] = useState(null);
   const [openHistUser, setOpenHistUser] = useState(null);
   const [openHistScheme, setOpenHistScheme] = useState({}); // { userId_schemeId: boolean }
 
@@ -2678,6 +2680,21 @@ function PaymentsPage({ goldRate }) {
           schemes: Object.values(u.schemes)
         }));
         setGroupedUpcoming(final);
+
+        const flattened = pendingData
+          .filter(p => p.user && p.user.name)
+          .sort((a, b) => {
+            const dateA = new Date(a.dueDate || a.createdAt || 0);
+            const dateB = new Date(b.dueDate || b.createdAt || 0);
+            if (dateA < dateB) return -1;
+            if (dateA > dateB) return 1;
+            const nameA = (a.user?.name || "").toLowerCase();
+            const nameB = (b.user?.name || "").toLowerCase();
+            if (nameA < nameB) return -1;
+            if (nameA > nameB) return 1;
+            return (a.paymentId || "").localeCompare(b.paymentId || "");
+          });
+        setFlatUpcomingPayments(flattened);
       }
     } catch (err) { console.error(err); }
     finally { setLoading(false); }
@@ -2969,75 +2986,33 @@ function PaymentsPage({ goldRate }) {
         <Card>
           <CardHeader title="Upcoming & Remaining Schedules"
             right={<span style={{ fontSize: 12, color: "var(--text-sub)" }}>Gold Rate Today: <b style={{ color: "#D4A017" }}>₹{goldRate.toLocaleString()}/g</b></span>} />
-          {loading ? <div style={{ padding: 60, textAlign: "center", color: "var(--text-light)" }}>Loading schedules...</div> : groupedUpcoming.length === 0 ? <div style={{ padding: 60, textAlign: "center", color: "var(--text-sub)" }}>No pending payments found.</div> : (
+          {loading ? <div style={{ padding: 60, textAlign: "center", color: "var(--text-light)" }}>Loading schedules...</div> : flatUpcomingPayments.length === 0 ? <div style={{ padding: 60, textAlign: "center", color: "var(--text-sub)" }}>No pending payments found.</div> : (
             <div style={{ padding: "0 16px 16px" }}>
-              {groupedUpcoming.map(group => {
-                const isExpanded = openUpcomingUser === group.user?._id;
-                return (
-                  <div key={group.user?._id} style={{ marginBottom: 12, border: "1px solid var(--border-main)", borderRadius: 12, overflow: "hidden" }}>
-                    <div
-                      onClick={() => setOpenUpcomingUser(isExpanded ? null : group.user?._id)}
-                      style={{ background: "var(--bg-input)", padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer" }}
-                    >
-                      <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-                        <Avatar name={group.user?.name || "?"} img={group.user?.userPhoto} size={36} fontSize={14} />
-                        <div>
-                          <div style={{ fontWeight: 700, fontSize: 16, color: "var(--text-main)" }}>{group.user?.name || "Unknown User"}</div>
-                          <div style={{ fontSize: 13, color: "var(--text-sub)", marginTop: 2 }}>
-                            {group.schemes.reduce((acc, s) => acc + (s.payments?.length || 0), 0)} scheduled payments remaining
-                          </div>
-                        </div>
-                      </div>
-                      <div style={{ fontWeight: 800, color: "var(--text-light)", transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)", transition: "0.2s" }}>▼</div>
-                    </div>
-
-                    {isExpanded && (
-                      <div style={{ background: "var(--bg-page)", padding: "12px 16px", borderTop: "1px solid var(--border-main)" }}>
-                        {group.schemes.map((sGroup, idx) => (
-                          <div key={idx} style={{ marginBottom: 20, background: "rgba(255,255,255,0.02)", border: "1px solid var(--border-alt)", borderRadius: 10, overflow: "hidden" }}>
-                            <div style={{ padding: "10px 16px", background: "rgba(0,0,0,0.1)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                                <span style={{ fontSize: 11, background: "var(--primary-bg)", color: "var(--primary)", borderRadius: 6, padding: "3px 8px", fontWeight: 800 }}>{sGroup.info?.schemeId || "Unknown"}</span>
-                                <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text-sub)" }}>{sGroup.info?.description || "Active Scheme"}</span>
-                              </div>
-                              <div style={{ fontSize: 11, color: "var(--text-light)" }}>{sGroup.payments.length} Dues</div>
-                            </div>
-                            <div className="table-container">
-                              <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                                <thead>
-                                  <tr>{["ID", "Started", "Amount", "Month", "Due Date", "Action"].map(h => (
-                                    <th key={h} style={{ padding: "10px 16px", fontSize: 10, fontWeight: 700, color: "var(--text-light)", textAlign: "left", letterSpacing: 0.5, borderBottom: "1px solid var(--border-alt)", textTransform: "uppercase" }}>{h}</th>
-                                  ))}</tr>
-                                </thead>
-                                <tbody>
-                                  {sGroup.payments.sort((a, b) => a.monthNumber - b.monthNumber).map(p => (
-                                    <tr key={p._id} className="table-row">
-                                      <td style={{ padding: "10px 16px", borderBottom: `1px solid var(--border-alt)` }}><span style={{ fontSize: 11, fontWeight: 700, color: "var(--primary)" }}>{p.paymentId}</span></td>
-                                      <td style={{ padding: "10px 16px", borderBottom: `1px solid var(--border-alt)`, fontSize: 11, color: "var(--text-sub)" }}>{p.scheme?.startDate ? new Date(p.scheme.startDate).toLocaleDateString("en-IN") : "—"}</td>
-                                      <td style={{ padding: "10px 16px", borderBottom: `1px solid var(--border-alt)` }}><b style={{ color: "var(--text-main)", fontSize: 13 }}>₹{(p.amount || 0).toLocaleString()}</b></td>
-                                      <td style={{ padding: "10px 16px", borderBottom: `1px solid var(--border-alt)`, color: "var(--text-main)", fontSize: 12, fontWeight: 600 }}>Month {p.monthNumber}</td>
-                                      <td style={{ padding: "10px 16px", borderBottom: `1px solid var(--border-alt)` }}>
-                                        <div style={{ fontSize: 12, color: p.status === "overdue" ? "#EF4444" : "var(--text-sub)" }}>{new Date(p.dueDate).toLocaleDateString('en-IN')}</div>
-                                        {p.status === "overdue" && <span style={{ fontSize: 9, color: "#EF4444", fontWeight: 700 }}>OVERDUE</span>}
-                                      </td>
-                                      <td style={{ padding: "10px 16px", borderBottom: `1px solid var(--border-alt)` }}>
-                                        <button
-                                          onClick={() => setPendingPayAction({ id: p._id, type: "markPaid", label: `Mark Month ${p.monthNumber} as Paid for ${group.user?.name}` })}
-                                          style={{ padding: "6px 14px", fontSize: 11, background: "#16A34A", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", fontWeight: 700 }}
-                                        >✓ Mark Paid</button>
-                                      </td>
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+              <div className="table-container" style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <thead>
+                    <tr>
+                      {["User Name", "Payment ID", "Chit ID", "Started", "Amount", "Month", "Due Date", "Status"].map(h => (
+                        <th key={h} style={{ padding: "10px 16px", fontSize: 10, fontWeight: 700, color: "var(--text-light)", textAlign: "left", letterSpacing: 0.5, borderBottom: "1px solid var(--border-alt)", textTransform: "uppercase" }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {flatUpcomingPayments.map(p => (
+                      <tr key={p._id} className="table-row">
+                        <td style={{ padding: "10px 16px", borderBottom: "1px solid var(--border-alt)", fontSize: 13, color: "var(--text-main)", fontWeight: 600 }}>{p.user?.name || "Unknown User"}</td>
+                        <td style={{ padding: "10px 16px", borderBottom: "1px solid var(--border-alt)", fontSize: 11, color: "var(--text-sub)" }}>{p.paymentId || "—"}</td>
+                        <td style={{ padding: "10px 16px", borderBottom: "1px solid var(--border-alt)", fontSize: 11, color: "var(--text-sub)" }}>{p.scheme?.schemeId || "—"}</td>
+                        <td style={{ padding: "10px 16px", borderBottom: "1px solid var(--border-alt)", fontSize: 11, color: "var(--text-sub)" }}>{p.scheme?.startDate ? new Date(p.scheme.startDate).toLocaleDateString("en-IN") : "—"}</td>
+                        <td style={{ padding: "10px 16px", borderBottom: "1px solid var(--border-alt)", fontSize: 13, color: "var(--text-main)", fontWeight: 700 }}>₹{(p.amount || 0).toLocaleString()}</td>
+                        <td style={{ padding: "10px 16px", borderBottom: "1px solid var(--border-alt)", fontSize: 12, color: "var(--text-main)", fontWeight: 600 }}>Month {p.monthNumber}</td>
+                        <td style={{ padding: "10px 16px", borderBottom: "1px solid var(--border-alt)", fontSize: 12, color: p.status === "overdue" ? "#EF4444" : "var(--text-sub)" }}>{p.dueDate ? new Date(p.dueDate).toLocaleDateString('en-IN') : "—"}</td>
+                        <td style={{ padding: "10px 16px", borderBottom: "1px solid var(--border-alt)", fontSize: 12, fontWeight: 700, color: p.status === "overdue" ? "#EF4444" : "var(--text-main)" }}>{p.status?.toUpperCase() || "PENDING"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </Card>
@@ -3313,67 +3288,78 @@ function PaymentsPage({ goldRate }) {
               <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                 {groupedUpcoming
                   .filter(g => g.user?.phone?.includes(searchQuery) || g.user?.name?.toLowerCase().includes(searchQuery.toLowerCase()))
-                  .map(group => (
-                    <div key={group.user?._id} style={{ border: "1.5px solid var(--border-alt)", borderRadius: 16, overflow: "hidden", background: "var(--bg-alt)" }}>
-                      <div style={{ padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", background: "rgba(255,255,255,0.02)", borderBottom: "1px solid var(--border-main)" }}>
-                        <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-                          <Avatar name={group.user?.name || "?"} img={group.user?.userPhoto} size={40} fontSize={15} />
-                          <div>
-                            <div style={{ fontWeight: 800, fontSize: 16, color: "var(--text-main)" }}>{group.user?.name}</div>
-                            <div style={{ fontSize: 13, color: "var(--text-sub)", marginTop: 2 }}>📞 {group.user?.phone} · ID: {group.user?.userId}</div>
+                  .map(group => {
+                    const isOpen = openCashUser === group.user?._id;
+                    return (
+                      <div key={group.user?._id} style={{ border: "1.5px solid var(--border-alt)", borderRadius: 16, overflow: "hidden", background: "var(--bg-alt)" }}>
+                        <div
+                          onClick={() => setOpenCashUser(isOpen ? null : group.user?._id)}
+                          style={{ padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", background: "rgba(255,255,255,0.02)", borderBottom: "1px solid var(--border-main)", cursor: "pointer" }}
+                        >
+                          <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                            <Avatar name={group.user?.name || "?"} img={group.user?.userPhoto} size={40} fontSize={15} />
+                            <div>
+                              <div style={{ fontWeight: 800, fontSize: 16, color: "var(--text-main)" }}>{group.user?.name}</div>
+                              <div style={{ fontSize: 13, color: "var(--text-sub)", marginTop: 2 }}>📞 {group.user?.phone} · ID: {group.user?.userId}</div>
+                            </div>
+                          </div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                            <div style={{ textAlign: "right" }}>
+                              <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-light)", textTransform: "uppercase", letterSpacing: 0.5 }}>Pending</div>
+                              <div style={{ fontSize: 18, fontWeight: 800, color: "var(--gold)" }}>{group.schemes.reduce((acc, s) => acc + s.payments.length, 0)} Months</div>
+                            </div>
+                            <div style={{ fontSize: 24, transform: isOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }}>▾</div>
                           </div>
                         </div>
-                        <div style={{ textAlign: "right" }}>
-                          <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-light)", textTransform: "uppercase", letterSpacing: 0.5 }}>Pending</div>
-                          <div style={{ fontSize: 18, fontWeight: 800, color: "var(--gold)" }}>{group.schemes.reduce((acc, s) => acc + s.payments.length, 0)} Months</div>
-                        </div>
-                      </div>
 
-                      <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
-                        {group.schemes.map(s => (
-                          <div key={s.info?._id || s.schemeId} style={{ background: "var(--bg-card)", borderRadius: 12, padding: 16, border: "1px solid var(--border-main)" }}>
-                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-                              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                <span style={{ fontSize: 12, background: "var(--primary-bg)", color: "var(--primary)", padding: "4px 10px", borderRadius: 8, fontWeight: 800, letterSpacing: 0.5 }}>{s.info?.schemeId || "Scheme"}</span>
-                                <span style={{ fontWeight: 700, color: "var(--text-main)", fontSize: 14 }}>₹{s.info?.monthlyAmount?.toLocaleString()}/mo</span>
-                              </div>
-                              <span style={{ fontSize: 12, color: "var(--text-light)", fontWeight: 600 }}>Started: {new Date(s.info?.startDate).toLocaleDateString()}</span>
-                            </div>
-
-                            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                              {s.payments.sort((a, b) => a.monthNumber - b.monthNumber).map(p => (
-                                <div key={p._id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", background: "var(--bg-input)", borderRadius: 10, border: "1px solid var(--border-alt)" }}>
-                                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                                    <div style={{ width: 32, height: 32, borderRadius: "50%", background: p.status === "overdue" ? "var(--danger-bg)" : "var(--primary-bg)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 800, color: p.status === "overdue" ? "var(--danger)" : "var(--primary)" }}>{p.monthNumber}</div>
-                                    <div>
-                                      <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text-main)" }}>Month {p.monthNumber}</div>
-                                      <div style={{ fontSize: 11, color: p.status === "overdue" ? "var(--danger)" : "var(--text-sub)", fontWeight: 600 }}>
-                                        {p.status === "overdue" ? "⚠ OVERDUE" : `Due: ${new Date(p.dueDate).toLocaleDateString()}`}
-                                      </div>
-                                    </div>
+                        {isOpen && (
+                          <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
+                            {group.schemes.map(s => (
+                              <div key={s.info?._id || s.schemeId} style={{ background: "var(--bg-card)", borderRadius: 12, padding: 16, border: "1px solid var(--border-main)" }}>
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                    <span style={{ fontSize: 12, background: "var(--primary-bg)", color: "var(--primary)", padding: "4px 10px", borderRadius: 8, fontWeight: 800, letterSpacing: 0.5 }}>{s.info?.schemeId || "Scheme"}</span>
+                                    <span style={{ fontWeight: 700, color: "var(--text-main)", fontSize: 14 }}>₹{s.info?.monthlyAmount?.toLocaleString()}/mo</span>
                                   </div>
-                                  <button
-                                    onClick={() => setCashUpdate({
-                                      paymentId: p._id,
-                                      amount: p.amount,
-                                      monthNumber: p.monthNumber,
-                                      userName: group.user?.name,
-                                      schemeName: s.info?.schemeId,
-                                      date: new Date().toISOString().split('T')[0],
-                                      mode: "Cash"
-                                    })}
-                                    style={{ padding: "8px 16px", background: "var(--primary)", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700, boxShadow: "0 2px 6px rgba(26,127,212,0.2)" }}
-                                  >
-                                    Update Payment
-                                  </button>
+                                  <span style={{ fontSize: 12, color: "var(--text-light)", fontWeight: 600 }}>Started: {new Date(s.info?.startDate).toLocaleDateString()}</span>
                                 </div>
-                              ))}
-                            </div>
+
+                                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                                  {s.payments.sort((a, b) => a.monthNumber - b.monthNumber).map(p => (
+                                    <div key={p._id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", background: "var(--bg-input)", borderRadius: 10, border: "1px solid var(--border-alt)" }}>
+                                      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                                        <div style={{ width: 32, height: 32, borderRadius: "50%", background: p.status === "overdue" ? "var(--danger-bg)" : "var(--primary-bg)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 800, color: p.status === "overdue" ? "var(--danger)" : "var(--primary)" }}>{p.monthNumber}</div>
+                                        <div>
+                                          <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text-main)" }}>Month {p.monthNumber}</div>
+                                          <div style={{ fontSize: 11, color: p.status === "overdue" ? "var(--danger)" : "var(--text-sub)", fontWeight: 600 }}>
+                                            {p.status === "overdue" ? "⚠ OVERDUE" : `Due: ${new Date(p.dueDate).toLocaleDateString()}`}
+                                          </div>
+                                        </div>
+                                      </div>
+                                      <button
+                                        onClick={() => setCashUpdate({
+                                          paymentId: p._id,
+                                          amount: p.amount,
+                                          monthNumber: p.monthNumber,
+                                          userName: group.user?.name,
+                                          schemeName: s.info?.schemeId,
+                                          date: new Date().toISOString().split('T')[0],
+                                          mode: "Cash"
+                                        })}
+                                        style={{ padding: "8px 16px", background: "var(--primary)", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700, boxShadow: "0 2px 6px rgba(26,127,212,0.2)" }}
+                                      >
+                                        Update Payment
+                                      </button>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            ))}
                           </div>
-                        ))}
+                        )}
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
               </div>
             )}
           </div>
