@@ -119,9 +119,11 @@ const adminLogin = async (req, res) => {
         id: admin._id,
         name: admin.name,
         email: admin.email,
+        phone: admin.phone,
         shopName: admin.shopName,
         shopCode: admin.shopCode,
         role: admin.role,
+        adminPhoto: admin.adminPhoto || null,
       },
     });
   } catch (err) {
@@ -329,7 +331,7 @@ const getShopPaymentInfo = async (req, res) => {
       return res.status(400).json({ success: false, message: "No shop associated with this account" });
 
     const admin = await Admin.findById(req.user.adminId)
-      .select("name phone shopName shopCode upiId qrCodeUrl upiPayeeName bankName");
+      .select("name email phone shopName shopCode upiId qrCodeUrl upiPayeeName bankName adminPhoto");
 
     if (!admin)
       return res.status(404).json({ success: false, message: "Shop owner not found" });
@@ -341,11 +343,13 @@ const getShopPaymentInfo = async (req, res) => {
         shopName: admin.shopName,
         shopCode: admin.shopCode,
         ownerName: admin.name,
+        email: admin.email || "",
         phone: admin.phone,
         upiId: admin.upiId || "",
         upiPayeeName: admin.upiPayeeName || "",
         bankName: admin.bankName || "",
         qrCodeUrl: admin.qrCodeUrl || "",
+        adminPhoto: admin.adminPhoto || null,
       },
     });
   } catch (err) {
@@ -362,7 +366,7 @@ const getShopSettings = async (req, res) => {
     if (!req.admin) return res.status(401).json({ success: false, message: "Not authorized" });
 
     const admin = await Admin.findById(req.admin._id)
-      .select("name email phone shopName shopCode upiId qrCodeUrl upiPayeeName bankName");
+      .select("name email phone shopName shopCode upiId qrCodeUrl upiPayeeName bankName adminPhoto");
 
     if (!admin)
       return res.status(404).json({ success: false, message: "Admin not found" });
@@ -373,12 +377,14 @@ const getShopSettings = async (req, res) => {
         shopName: admin.shopName,
         shopCode: admin.shopCode,
         ownerName: admin.name,
+        name: admin.name,
         email: admin.email,
         phone: admin.phone,
         upiId: admin.upiId || "",
         upiPayeeName: admin.upiPayeeName || "",
         bankName: admin.bankName || "",
         qrCodeUrl: admin.qrCodeUrl || "",
+        adminPhoto: admin.adminPhoto || null,
       },
     });
   } catch (err) {
@@ -499,6 +505,8 @@ const updateShopSettings = async (req, res) => {
       return res.status(404).json({ success: false, message: "Admin not found" });
 
     const { name, ownerName, email, phone, shopName, upiId, upiPayeeName, bankName, qrCodeUrl } = req.body;
+    const qrFile = req.files?.qrCode?.[0];
+    const photoFile = req.files?.adminPhoto?.[0];
 
     const isVal = (v) => v !== undefined && v !== null && v !== "" && v !== "undefined" && v !== "null";
 
@@ -524,15 +532,16 @@ const updateShopSettings = async (req, res) => {
     if (isVal(upiPayeeName)) admin.upiPayeeName = upiPayeeName.trim();
     if (isVal(bankName))  admin.bankName = bankName.trim();
 
-    // If a new QR file was uploaded, use its path
-    if (req.file) {
-      // req.file.path is like "uploads\\1234-abc.png" on Windows; normalize
-      const normalized = req.file.path.replace(/\\/g, "/");
-      // Store as a relative path like "/uploads/xxx.png"
+    if (qrFile) {
+      const normalized = qrFile.path.replace(/\\/g, "/");
       admin.qrCodeUrl = "/" + (normalized.startsWith("/") ? normalized.slice(1) : normalized);
     } else if (qrCodeUrl !== undefined) {
-      // Allow saving a manual URL (e.g. remote hosted QR)
       admin.qrCodeUrl = qrCodeUrl.trim();
+    }
+
+    if (photoFile) {
+      const normalizedPhoto = photoFile.path.replace(/\\/g, "/");
+      admin.adminPhoto = "/" + (normalizedPhoto.startsWith("/") ? normalizedPhoto.slice(1) : normalizedPhoto);
     }
 
     await admin.save();
@@ -554,6 +563,7 @@ const updateShopSettings = async (req, res) => {
         upiPayeeName: admin.upiPayeeName,
         bankName: admin.bankName,
         qrCodeUrl: admin.qrCodeUrl,
+        adminPhoto: admin.adminPhoto || null,
       },
     });
   } catch (err) {

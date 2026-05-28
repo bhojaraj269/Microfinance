@@ -2536,6 +2536,9 @@ export default function UserDashboard({ onLogout }) {
   const [activeTab, setActiveTab] = useState("schemes");
   const [menuOpen, setMenuOpen] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
+  const [showShopDetails, setShowShopDetails] = useState(false);
+  const [adminShopDetails, setAdminShopDetails] = useState(null);
+  const [loadingShopDetails, setLoadingShopDetails] = useState(false);
   const [dark, setDark] = useState(() => localStorage.getItem("userTheme") !== "light");
   const [scheduleScheme, setScheduleScheme] = useState(null);
   const [fetchError, setFetchError] = useState(null);
@@ -2699,6 +2702,31 @@ export default function UserDashboard({ onLogout }) {
       loadPlans();
     }
   }, [selectedCategoryId]);
+
+  // Fetch admin shop details when modal opens
+  useEffect(() => {
+    if (showShopDetails) {
+      setLoadingShopDetails(true);
+      fetch(`${API}/api/auth/shop-payment-info`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+        .then(r => r.json())
+        .then(d => {
+          if (d.success && d.data) {
+            setAdminShopDetails(d.data);
+          } else {
+            setAdminShopDetails(null);
+          }
+        })
+        .catch(err => {
+          console.error("Failed to fetch shop details:", err);
+          setAdminShopDetails(null);
+        })
+        .finally(() => setLoadingShopDetails(false));
+    } else {
+      setAdminShopDetails(null);
+    }
+  }, [showShopDetails, token]);
 
   const schemes = profile?.schemes || [];
   const payments = profile?.payments || [];
@@ -2975,6 +3003,123 @@ Thank you for investing with us!
         </div>
       )}
 
+      {/* Shop Details Modal */}
+      {showShopDetails && (
+        <div className="lv-modal-backdrop" onClick={() => setShowShopDetails(false)} style={{ zIndex: 100 }}>
+          <div className="lv-pay-modal" style={{ maxWidth: 600, padding: 0, borderRadius: 16 }} onClick={e => e.stopPropagation()}>
+            <div className="lv-pay-head" style={{ borderRadius: "16px 16px 0 0" }}>
+              <div className="lv-pay-head-row">
+                <div>
+                  <div className="lv-pay-eyebrow">
+                    <span className="lv-live-dot" />
+                    Shop Information
+                  </div>
+                  <div className="lv-pay-title">Shop Details</div>
+                </div>
+                <button className="lv-modal-close" onClick={() => setShowShopDetails(false)}>✕</button>
+              </div>
+            </div>
+            <div style={{ padding: 24, maxHeight: "80vh", overflowY: "auto" }}>
+              {loadingShopDetails ? (
+                <div style={{ textAlign: "center", padding: "40px 20px", color: "var(--text-light)" }}>
+                  Loading shop details...
+                </div>
+              ) : (
+                <>
+                  {/* Admin Photo + Basic Info */}
+                  <div style={{ display: "flex", gap: 20, marginBottom: 24, alignItems: "flex-start" }}>
+                    <div style={{
+                      width: 100, height: 100, borderRadius: 12, flexShrink: 0,
+                      background: adminShopDetails?.adminPhoto ? "transparent" : "linear-gradient(135deg,#D4A017,#F5C842)",
+                      overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center",
+                      fontSize: 36, fontWeight: 700, color: "#0B1F3E", boxShadow: "0 4px 12px rgba(0,0,0,0.1)"
+                    }}>
+                      {adminShopDetails?.adminPhoto ? (
+                        <img src={getFileUrl(adminShopDetails.adminPhoto)} alt="Shop Owner" 
+                          style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                      ) : (
+                        (adminShopDetails?.ownerName || "S").charAt(0).toUpperCase()
+                      )}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ marginBottom: 12 }}>
+                        <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-light)", letterSpacing: 0.5, marginBottom: 4 }}>
+                          OWNER NAME
+                        </div>
+                        <div style={{ fontSize: 15, fontWeight: 600, color: "var(--text-main)" }}>
+                          {adminShopDetails?.ownerName || adminShopDetails?.name || "—"}
+                        </div>
+                      </div>
+                      <div style={{ marginBottom: 12 }}>
+                        <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-light)", letterSpacing: 0.5, marginBottom: 4 }}>
+                          SHOP CODE
+                        </div>
+                        <div style={{ fontSize: 15, fontWeight: 600, color: "var(--text-main)" }}>
+                          {adminShopDetails?.shopCode || "—"}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Email and Phone */}
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 20 }}>
+                    <div>
+                      <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-light)", letterSpacing: 0.5, marginBottom: 6 }}>
+                        EMAIL ADDRESS
+                      </div>
+                      <div style={{
+                        fontSize: 14, color: "var(--text-main)", background: "var(--bg-input)",
+                        padding: "10px 12px", borderRadius: 8, wordBreak: "break-all"
+                      }}>
+                        {adminShopDetails?.email || "—"}
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-light)", letterSpacing: 0.5, marginBottom: 6 }}>
+                        SHOP PHONE
+                      </div>
+                      <div style={{
+                        fontSize: 14, color: "var(--text-main)", background: "var(--bg-input)",
+                        padding: "10px 12px", borderRadius: 8
+                      }}>
+                        {adminShopDetails?.phone || "—"}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Shop Name */}
+                  <div style={{ marginBottom: 24 }}>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-light)", letterSpacing: 0.5, marginBottom: 6 }}>
+                      SHOP NAME
+                    </div>
+                    <div style={{
+                      fontSize: 14, color: "var(--text-main)", background: "var(--bg-input)",
+                      padding: "10px 12px", borderRadius: 8, width: "100%", wordBreak: "break-word"
+                    }}>
+                      {adminShopDetails?.shopName || "—"}
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => setShowShopDetails(false)}
+                    style={{
+                      width: "100%", padding: "12px 16px",
+                      background: "var(--primary)", color: "#fff", border: "none",
+                      borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: "pointer",
+                      transition: "all 0.2s"
+                    }}
+                    onMouseEnter={e => e.target.style.background = "var(--gold)"}
+                    onMouseLeave={e => e.target.style.background = "var(--primary)"}
+                  >
+                    Close
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <header className="lv-header">
         <div className="lv-header-inner">
@@ -3022,6 +3167,10 @@ Thank you for investing with us!
                 <button className="lv-menu-item" onClick={() => { setMenuOpen(false); setShowProfile(true); }}>
                   <span style={{ fontSize: 15, width: 20, textAlign: "center" }}>⚙️</span>
                   Profile Settings
+                </button>
+                <button className="lv-menu-item" onClick={() => { setMenuOpen(false); setShowShopDetails(true); }}>
+                  <span style={{ fontSize: 15, width: 20, textAlign: "center" }}>🏪</span>
+                  Shop Details
                 </button>
                 <button className="lv-menu-item" onClick={() => { setMenuOpen(false); handleLogout(); }}>
                   <span style={{ fontSize: 15, width: 20, textAlign: "center" }}>⏻</span>
